@@ -20,6 +20,13 @@ int main(int argc, char ** argv)
 		printf("create listen socket success\n");
 	}
 
+	//將 socket 設為地址可重用，這樣 server 中止後可立即重啟，不用等待 kernel 回收完
+	int reuse_addr_on = 1;
+	if(setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_on, sizeof(reuse_addr_on)) < 0)
+	{
+		perror("listen address reuse failed\n");
+		exit(1);
+	}
 
 	//建立用來填 server 地址的結構並填入
 	struct sockaddr_in server_addr;
@@ -64,8 +71,6 @@ int main(int argc, char ** argv)
 
 	//用來存放連線socket描述符的變數
 	int	connect_fd = 0;
-	char	client_message_temp[500];
-	int	read_state = 0;
 
 	while(1)
 	{
@@ -87,26 +92,7 @@ int main(int argc, char ** argv)
 			client_port = client_addr.sin_port;
 			printf("accept success from %s %d\n", client_ip, client_port);
 
-			while(1)
-			{
-				read_state = read(connect_fd, client_message_temp, 499);
-				if(read_state == 0)
-				{
-					printf("%s %d connect interrupt\n", client_ip, client_port);
-					exit(1);
-				}
-				else if(read_state == 1)
-				{
-					printf("%s %d read socket error\n", client_ip, client_port);
-					exit(1);
-				}
-				else
-				{
-					//根據收到的字數標記結束點，否則會顯示舊訊息
-					client_message_temp[read_state] = '\0';
-					printf("%s", client_message_temp);
-				}
-			}
+			http_handle(connect_fd);
 		}
 	}
 

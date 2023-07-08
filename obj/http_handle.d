@@ -1,5 +1,5 @@
-obj/flow.o: src/flow.c /usr/include/stdc-predef.h include/flow.h \
- /usr/include/stdio.h \
+obj/http_handle.o: src/http_handle.c /usr/include/stdc-predef.h \
+ include/flow.h /usr/include/stdio.h \
  /usr/include/aarch64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/aarch64-linux-gnu/sys/cdefs.h \
  /usr/include/aarch64-linux-gnu/bits/wordsize.h \

@@ -9,7 +9,10 @@
 #include <arpa/inet.h>	//sockaddr_in inet_pton()
 #include <errno.h>	//errno
 #include <unistd.h>	//read()
+#include <regex.h>	//解析http
 
+
+int http_handle(int connect_fd);
 
 #endif
 
