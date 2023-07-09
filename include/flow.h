@@ -14,5 +14,7 @@
 
 int http_handle(int connect_fd);
 
+int analysis(int capture_number, char * pattern, char * data, char * buffer, int buffer_size);
+
 #endif
 

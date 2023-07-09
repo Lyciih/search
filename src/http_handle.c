@@ -4,9 +4,12 @@
 char 	send_buffer[2000];
 char 	send_message[1000];
 char 	recv_packet_temp[1000];
-char 	analysis[100];
 int 	read_state;
 FILE	* target;
+char	regex_result[100];
+
+
+
 
 int http_handle(int connect_fd)
 {
@@ -18,38 +21,16 @@ int http_handle(int connect_fd)
 	}
 	recv_packet_temp[read_state] = '\0';
 
-	//用正則表達式取得想要的標頭資料---------------------------------------------------------
-	int reg_state;
-	regex_t find;
-	regmatch_t match[2];
-	char pattern[] = "Sec-WebSocket-Key: (.{24})";
-	reg_state = regcomp(&find, pattern, REG_EXTENDED);
-	if(reg_state != 0)
-	{
-		printf("regex compile error\n");
-		return 0;
-	}
 
-	reg_state = regexec(&find, recv_packet_temp, 2, match, 0);
-	if(reg_state == REG_NOMATCH)
-	{
-		printf("no match\n");
-	}
-	else if(reg_state == 0)
-	{
-		for(int i = match[1].rm_so; i < match[1].rm_eo; i++)
-		{
-			printf("%c", recv_packet_temp[i]);
-		}
-		printf("\n");
-	}
-
-	regfree(&find);
-	//---------------------------------------------------------------------------------------
+	//用正則表達式取得用於 websocket 握手的key---------------------------------------------------------
+	analysis(1, "Sec-WebSocket-Key: (.{24})", recv_packet_temp, regex_result, sizeof(regex_result));
+	printf("%s\n", regex_result);
 
 
 	printf("%s", recv_packet_temp);
 
+
+	//開檔，讀取要回應的網頁---------------------------------------------------------------------------
 	target = fopen("index.html", "r");
 
 	fseek(target, 0, SEEK_END);
@@ -60,6 +41,7 @@ int http_handle(int connect_fd)
 	send_message[file_size] = '\0';
 	fclose(target);
 
+	//產生http回應-------------------------------------------------------------------------------------
 	sprintf(send_buffer,"HTTP/1.1 200 OK\r\n"
 			"Context-Type: text/html\r\n"
 			"Content-Length: %ld\r\n"
@@ -67,6 +49,8 @@ int http_handle(int connect_fd)
 			"\r\n"
 			"%s\r\n"
 			,file_size+2, send_message);
+	
+	//發送http回應，並結束連線-------------------------------------------------------------------------
 	send(connect_fd, send_buffer, strlen(send_buffer), 0);
 	close(connect_fd);
 	return 0;
