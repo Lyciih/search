@@ -1,18 +1,14 @@
 #include "flow.h"
 
-
-char 	send_buffer[2000];
-char 	send_message[1000];
-char 	recv_packet_temp[1000];
-int 	read_state;
-FILE	* target;
-char	regex_result[100];
-
-
-
-
 int http_handle(int connect_fd)
 {
+	char 	send_buffer[2000];
+	char 	send_message[1000];
+	char 	recv_packet_temp[1000];
+	int 	read_state;
+	FILE	* target;
+	char	regex_result[100];
+	
 	read_state = read(connect_fd, recv_packet_temp, 999);
 	if(read_state == 0)
 	{

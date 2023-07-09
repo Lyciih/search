@@ -75,4 +75,33 @@ obj/regex.o: src/regex.c /usr/include/stdc-predef.h include/flow.h \
  /usr/include/aarch64-linux-gnu/bits/confname.h \
  /usr/include/aarch64-linux-gnu/bits/getopt_posix.h \
  /usr/include/aarch64-linux-gnu/bits/getopt_core.h \
- /usr/include/aarch64-linux-gnu/bits/unistd_ext.h /usr/include/regex.h
+ /usr/include/aarch64-linux-gnu/bits/unistd_ext.h /usr/include/regex.h \
+ /usr/include/openssl/sha.h /usr/include/openssl/e_os2.h \
+ /usr/include/aarch64-linux-gnu/openssl/opensslconf.h \
+ /usr/include/openssl/opensslv.h /usr/include/inttypes.h \
+ /usr/lib/gcc/aarch64-linux-gnu/10/include/stdint.h /usr/include/stdint.h \
+ /usr/include/aarch64-linux-gnu/bits/wchar.h /usr/include/openssl/bio.h \
+ /usr/include/openssl/crypto.h /usr/include/time.h \
+ /usr/include/aarch64-linux-gnu/bits/time.h \
+ /usr/include/aarch64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/aarch64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/openssl/safestack.h /usr/include/openssl/stack.h \
+ /usr/include/openssl/ossl_typ.h \
+ /usr/lib/gcc/aarch64-linux-gnu/10/include/limits.h \
+ /usr/lib/gcc/aarch64-linux-gnu/10/include/syslimits.h \
+ /usr/include/limits.h /usr/include/aarch64-linux-gnu/bits/posix1_lim.h \
+ /usr/include/aarch64-linux-gnu/bits/local_lim.h \
+ /usr/include/linux/limits.h \
+ /usr/include/aarch64-linux-gnu/bits/posix2_lim.h \
+ /usr/include/openssl/cryptoerr.h /usr/include/openssl/symhacks.h \
+ /usr/include/pthread.h /usr/include/sched.h \
+ /usr/include/aarch64-linux-gnu/bits/sched.h \
+ /usr/include/aarch64-linux-gnu/bits/types/struct_sched_param.h \
+ /usr/include/aarch64-linux-gnu/bits/cpu-set.h \
+ /usr/include/aarch64-linux-gnu/bits/setjmp.h \
+ /usr/include/openssl/bioerr.h /usr/include/openssl/evp.h \
+ /usr/include/openssl/evperr.h /usr/include/openssl/objects.h \
+ /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
+ /usr/include/openssl/asn1err.h /usr/include/openssl/bn.h \
+ /usr/include/openssl/bnerr.h /usr/include/openssl/objectserr.h \
+ /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h

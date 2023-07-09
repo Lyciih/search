@@ -1,4 +1,4 @@
-obj/http_handle.o: src/http_handle.c /usr/include/stdc-predef.h \
+obj/websocket_handle.o: src/websocket_handle.c /usr/include/stdc-predef.h \
  include/flow.h /usr/include/stdio.h \
  /usr/include/aarch64-linux-gnu/bits/libc-header-start.h \
  /usr/include/features.h /usr/include/aarch64-linux-gnu/sys/cdefs.h \

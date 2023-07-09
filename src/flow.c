@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 			client_port = client_addr.sin_port;
 			printf("accept success from %s %d\n", client_ip, client_port);
 
-			http_handle(connect_fd);
+			websocket_handle(connect_fd);
 		}
 	}
 
