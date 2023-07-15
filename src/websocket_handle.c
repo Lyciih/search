@@ -11,6 +11,11 @@ typedef struct websocket_frame{
 	unsigned int rsv2:1;
 	unsigned int rsv1:1;
 	unsigned int fin:1;
+
+	char tail;
+	char head;
+	unsigned int mask4:8;
+	unsigned int mask3:8;
 }websocket_frame;
 
 
@@ -31,11 +36,20 @@ int decimal_to_binary(int number, int digits, int end)
 	return 0;
 }
 
-int trans_ending(int size, char * source, char * result)
+int receive_trans_ending(int size, char * source, char * result)
 {
 	for(int i = 0; i <= ((size + 1) + 4 - 1)/4; i++)
 	{
 		*((unsigned int *)result + i) = ntohl(*((unsigned int *)source + i));
+	}
+	return 0;
+}
+
+int send_trans_ending(int size, websocket_frame * source, char * result)
+{
+	for(int i = 0; i <= ((size + 1) + 4 - 1)/4; i++)
+	{
+		*((unsigned int *)result + i) = htonl(*((unsigned int *)source + i));
 	}
 	return 0;
 }
@@ -60,6 +74,44 @@ int print_frame_binary(int size, char * frame)
 	return 0;
 }
 
+int payload_decode(char * head, int len, char * mask, char * buffer)
+{
+	char * current = head + 2;
+	int state = 2;
+	int count = 0;
+	for(int i = 0; i < len; i++)
+	{
+		count++;
+		//printf("%c", current[0 - state] ^ mask[i%4]);
+		buffer[i] = current[0 - state] ^ mask[i%4];
+		state++;
+		if(state == 4)
+		{
+			current = current + 4;
+			state = 0;
+		}
+	}
+	buffer[count] = '\0';
+	return 0;
+}
+
+int payload_send_sort(char * head, char * source, int len)
+{
+	char * current = head + 2;
+	int state = 2;
+	for(int i = 0; i <= len; i++)
+	{
+		current[0 - state] = source[i];
+		state++;
+		if(state == 4)
+		{
+			current = current + 4;
+			state = 0;
+		}
+	}
+	return 0;
+}
+
 int websocket_handle(int connect_fd)
 {
 	char 	send_buffer[2000];
@@ -70,6 +122,9 @@ int websocket_handle(int connect_fd)
 	FILE	* target;
 	char	regex_result[100];
 	char	Sec_WebSocket_Accept_buffer[100];
+	char	frame_mask[4];
+	char	decode_string[1000];
+	websocket_frame send_frame;
 
 
 	read_state = read(connect_fd, recv_packet_temp, 999);
@@ -145,6 +200,20 @@ int websocket_handle(int connect_fd)
 	//發送http回應，並結束連線-------------------------------------------------------------------------
 	send(connect_fd, send_buffer, strlen(send_buffer), 0);
 
+	send_frame.fin = 1;
+	send_frame.rsv1 = 0;
+	send_frame.rsv2 = 0;
+	send_frame.rsv3 = 0;
+	send_frame.opcode = 1;
+	send_frame.mask = 0;
+	send_frame.payload_len = 1;	
+	send_frame.mask1 = 'c';
+	send_frame.mask2 = 0;
+	send_frame.mask3 = 0;
+	send_frame.mask4 = 0;
+	send_frame.head = 'c';
+	send_frame.tail = 0;
+
 	while(1)
 	{
 		read_state = read(connect_fd, recv_packet_temp, 999);
@@ -156,51 +225,46 @@ int websocket_handle(int connect_fd)
 
 
 		recv_packet_temp[read_state] = '\0';
-		trans_ending(read_state, recv_packet_temp, local_ending);
-		websocket_frame * frame = (websocket_frame *)local_ending;
+		receive_trans_ending(read_state, recv_packet_temp, local_ending);
+		websocket_frame * receive_frame = (websocket_frame *)local_ending;
 
-		/*
-		printf("%d ", frame->fin);
-		printf("%d ", frame->rsv1);
-		printf("%d ", frame->rsv2);
-		printf("%d ", frame->rsv3);
-		decimal_to_binary(frame->opcode, 4);
-		printf("% d ", frame->mask);
-		decimal_to_binary(frame->payload_len, 7);
-		printf(" ");
-		decimal_to_binary(frame->mask_key_head, 16);
-		printf("\n");
-		decimal_to_binary(frame->mask_key_tail, 16);
-		printf(" ");
-		decimal_to_binary(frame->payload_data, 16);
-		printf("\n");
-		*/
+		frame_mask[0] = receive_frame->mask1;
+		frame_mask[1] = receive_frame->mask2;
+		frame_mask[2] = receive_frame->mask3;
+		frame_mask[3] = receive_frame->mask4;
+
+
+
 
 		print_frame_binary(read_state, local_ending);
 		printf("\n");
-		printf("%d %d %d %d %d %d %d %d %d", 
-				frame->mask1, 
-				frame->mask2, 
-				frame->payload_len,
-				frame->mask,
-				frame->opcode,
-				frame->rsv3,
-				frame->rsv2,
-				frame->rsv1,
-				frame->fin
-				);
-		printf("\n%d %d %d %d %d %d %d %d %d", 
-				frame->fin,
-				frame->rsv1,
-				frame->rsv2,
-				frame->rsv3,
-				frame->opcode,
-				frame->mask,
-				frame->payload_len,
-				frame->mask1,
-				frame->mask2
+		printf("\n%d %d %d %d %d %d %d %d %d %d %d", 
+				receive_frame->fin,
+				receive_frame->rsv1,
+				receive_frame->rsv2,
+				receive_frame->rsv3,
+				receive_frame->opcode,
+				receive_frame->mask,
+				receive_frame->payload_len,
+				receive_frame->mask1,
+				receive_frame->mask2,
+				receive_frame->mask3,
+				receive_frame->mask4
 				);
 		printf("\n\n");
+		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
+		printf("\n");
+		printf("%s\n", decode_string);
+		
+
+		char send_string[] = "你好啊\n";
+		int send_len =  strlen(decode_string);
+		payload_send_sort(&send_frame.head - 4, decode_string, send_len);
+		send_frame.payload_len = send_len;
+		print_frame_binary(2 + send_len, (char *)(&send_frame));
+		printf("\n----------------------------\n");
+		send_trans_ending(2 + send_len, &send_frame, send_buffer);
+		send(connect_fd, send_buffer, 2 + send_len, 0);
 	}
 	//close(connect_fd);
 	return 0;
