@@ -115,11 +115,11 @@ int payload_send_sort(char * head, char * source, int len)
 int websocket_handle(int connect_fd)
 {
 	char 	send_buffer[2000];
-	char 	send_message[1000];
+	//char 	send_message[1000];
 	char 	recv_packet_temp[1000];
 	char 	local_ending[1000];
 	int 	read_state;
-	FILE	* target;
+	//FILE	* target;
 	char	regex_result[100];
 	char	Sec_WebSocket_Accept_buffer[100];
 	char	frame_mask[4];
@@ -178,6 +178,7 @@ int websocket_handle(int connect_fd)
 
 
 	//開檔，讀取要回應的網頁---------------------------------------------------------------------------
+	/*
 	target = fopen("index.html", "r");
 
 	fseek(target, 0, SEEK_END);
@@ -187,7 +188,7 @@ int websocket_handle(int connect_fd)
 	fread(send_message, 1, file_size, target);
 	send_message[file_size] = '\0';
 	fclose(target);
-
+	*/
 	//產生http回應-------------------------------------------------------------------------------------
 	sprintf(send_buffer,
 			"HTTP/1.1 101 Switching Protocols\r\n"
@@ -252,12 +253,37 @@ int websocket_handle(int connect_fd)
 				receive_frame->mask4
 				);
 		printf("\n\n");
+
+
+		if(receive_frame->opcode == 8)
+		{
+			payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
+			if(receive_frame->payload_len > 2)
+			{
+
+				printf("\n");
+
+				char temp = decode_string[0];
+				decode_string[0] = decode_string[1];
+				decode_string[1] = temp;
+				//decimal_to_binary(*((int *)(decode_string)), 31, 0);
+				printf("%hd ", *((short int *)(decode_string)));
+				printf("%s\n", decode_string + 2);
+			}
+
+			send_frame.opcode = 8;
+			send_frame.payload_len = 0;
+			send_trans_ending(2 , &send_frame, send_buffer);
+			send(connect_fd, send_buffer, 2, 0);
+			close(connect_fd);
+			return 0;
+		}
+
 		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
 		printf("\n");
 		printf("%s\n", decode_string);
 		
 
-		char send_string[] = "你好啊\n";
 		int send_len =  strlen(decode_string);
 		payload_send_sort(&send_frame.head - 4, decode_string, send_len);
 		send_frame.payload_len = send_len;
