@@ -1,0 +1,12 @@
+#websocket_output{
+width: 210px;
+height: 200px;
+resize: none;
+}
+
+
+#websocket_input{
+width: 210px;
+height: 30px;
+resize: none;
+}
