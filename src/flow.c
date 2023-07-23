@@ -72,29 +72,97 @@ int main(int argc, char ** argv)
 	//用來存放連線socket描述符的變數
 	int	connect_fd = 0;
 
-	while(1)
-	{
-		if((connect_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &len)) < 0)
-		{
-			if(errno = EINTR)
-			{
-				continue;
-			}
-			else
-			{	perror("accept error\n");
-				exit(0);
-			}
-		}
-		else	//連線成功
-		{
-			//顯示客戶端地址
-			inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-			client_port = client_addr.sin_port;
-			printf("accept success from %s %d\n", client_ip, client_port);
 
-			websocket_handle(connect_fd);
-		}
+	//建立 epoll
+	int	epoll_fd = epoll_create(1001);
+	if(epoll_fd == -1)
+	{
+		perror("epoll create fails\n");
+		exit(1);
 	}
 
+	
+	//將 listen socket 註冊到 epoll 中 
+	struct epoll_event listen;
+	listen.events = EPOLLIN;
+	listen.data.fd = listen_fd;
+	
+	if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &listen) == -1)
+	{
+		perror("epoll_ctl add listen socket fails\n");
+		exit(1);
+	}
+
+
+	//準備用來接收待處理事件的陣列
+	int max_events = 1001;
+	//struct epoll_event * get_events = malloc(max_events * sizeof(struct epoll_event));
+	struct epoll_event get_events[max_events];
+	int get_event_count;
+	int current_fd;
+	uint32_t current_event;
+	
+
+	//用來註冊新socket的epoll_event
+	struct epoll_event test;
+
+
+	// epoll_wait 迴圈
+	while(1)
+	{
+		get_event_count = epoll_wait(epoll_fd, get_events, max_events, -1);
+		if(get_event_count == -1)
+		{
+			perror("epoll_wait error\n");
+			exit(1);
+		}
+		printf("get %d event\n", get_event_count);
+
+		for(int i = 0; i < get_event_count; i++)
+		{
+			current_fd = get_events[i].data.fd;
+			current_event = get_events[i].events;
+
+			if(current_fd == listen_fd)
+			{
+				printf("%d\n", listen_fd);
+				printf("%d\n", current_fd);
+				connect_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &len);
+				if(connect_fd == -1)
+				{
+					perror("accept error\n");
+				}
+				else	//連線成功
+				{
+
+					if(websocket_handshake(connect_fd) == 0)
+					{
+					
+						//將新連線加入epoll中
+						test.events = EPOLLIN;
+						test.data.fd = connect_fd;
+						
+						if((epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connect_fd, &test)) == -1)
+						{
+							perror("epoll_ctl add client socket fails\n");
+							exit(1);
+						}
+						else
+						{
+							//顯示客戶端地址
+							inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
+							client_port = client_addr.sin_port;
+							printf("accept success from %s %d %d\n", client_ip, client_port, connect_fd);
+						}
+					}
+				}
+			}
+			else if(current_event & EPOLLIN)
+			{
+				printf("%d\n", get_events[i].data.fd);
+				websocket_handle(get_events[i].data.fd, epoll_fd);
+			}
+		}
+	}
 	return 0;
 }

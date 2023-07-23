@@ -16,9 +16,13 @@
 #include <openssl/evp.h>//base64
 #include <openssl/buffer.h>//base64
 
+#include <sys/epoll.h>
+
+
 
 int http_handle(int connect_fd);
-int websocket_handle(int connect_fd);
+int websocket_handshake(int connect_fd);
+int websocket_handle(int connect_fd, int epoll_fd);
 
 int analysis(int capture_number, char * pattern, char * data, char * buffer, int buffer_size);
 

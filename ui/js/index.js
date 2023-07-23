@@ -50,7 +50,7 @@ function websocket_connect_function()
 
 function websocket_close_function()
 {
-	socket.close(3000, "abc");
+	socket.close(1000, "正常斷開");
 	console.log("close");
 }
 

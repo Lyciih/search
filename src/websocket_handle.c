@@ -112,29 +112,31 @@ int payload_send_sort(char * head, char * source, int len)
 	return 0;
 }
 
-int websocket_handle(int connect_fd)
+int websocket_handshake(int connect_fd)
 {
 	char 	send_buffer[2000];
-	//char 	send_message[1000];
 	char 	recv_packet_temp[1000];
-	char 	local_ending[1000];
 	int 	read_state;
 	//FILE	* target;
 	char	regex_result[100];
 	char	Sec_WebSocket_Accept_buffer[100];
-	char	frame_mask[4];
-	char	decode_string[1000];
-	websocket_frame send_frame;
 
 
+	//讀取收到的請求---------------------------------------------------------
 	read_state = read(connect_fd, recv_packet_temp, 999);
-	if(read_state == 0)
+	if(read_state == -1)
 	{
 		perror("connect interrupt\n");
-		return 0;
+		return -1;
 	}
 	recv_packet_temp[read_state] = '\0';
 
+	//檢查請求是否合法------------------------------------------------------
+	if(analysis(1, "Upgrade: websocket", recv_packet_temp, regex_result, sizeof(regex_result)) != 0)
+	{
+		close(connect_fd);
+		return -2;
+	}
 
 	//用正則表達式取得用於 websocket 握手的key---------------------------------------------------------
 	if(analysis(1, "Sec-WebSocket-Key: (.{24})", recv_packet_temp, regex_result, sizeof(regex_result)) == 0)
@@ -198,8 +200,87 @@ int websocket_handle(int connect_fd)
 			"\r\n"
 			, Sec_WebSocket_Accept_buffer);
 	
-	//發送http回應，並結束連線-------------------------------------------------------------------------
+	//發送http回應-------------------------------------------------------------------------
 	send(connect_fd, send_buffer, strlen(send_buffer), 0);
+
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+int websocket_handle(int connect_fd, int epoll_fd)
+{
+	char 	send_buffer[2000];
+	char 	recv_packet_temp[1000];
+	char 	local_ending[1000];
+	int 	read_state;
+	char	frame_mask[4];
+	char	decode_string[1000];
+	websocket_frame send_frame;
+
+
+	read_state = read(connect_fd, recv_packet_temp, 999);
+	if(read_state == -1)
+	{
+		perror("read error\n");
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connect_fd, NULL) == -1)
+		{
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
+		}
+		close(connect_fd);
+		return -1;
+	}
+
+	if(read_state == 0)
+	{
+
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connect_fd, NULL) == -1)
+		{
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
+		}
+		close(connect_fd);
+		return 0;
+	}
+
+	recv_packet_temp[read_state] = '\0';
+	receive_trans_ending(read_state, recv_packet_temp, local_ending);
+	websocket_frame * receive_frame = (websocket_frame *)local_ending;
+
+	frame_mask[0] = receive_frame->mask1;
+	frame_mask[1] = receive_frame->mask2;
+	frame_mask[2] = receive_frame->mask3;
+	frame_mask[3] = receive_frame->mask4;
+
+
+
+
+	print_frame_binary(read_state, local_ending);
+	printf("\n");
+	printf("\n%d %d %d %d %d %d %d %d %d %d %d", 
+			receive_frame->fin,
+			receive_frame->rsv1,
+			receive_frame->rsv2,
+			receive_frame->rsv3,
+			receive_frame->opcode,
+			receive_frame->mask,
+			receive_frame->payload_len,
+			receive_frame->mask1,
+			receive_frame->mask2,
+			receive_frame->mask3,
+			receive_frame->mask4
+			);
+	printf("\n\n");
 
 	send_frame.fin = 1;
 	send_frame.rsv1 = 0;
@@ -207,77 +288,38 @@ int websocket_handle(int connect_fd)
 	send_frame.rsv3 = 0;
 	send_frame.opcode = 1;
 	send_frame.mask = 0;
-	send_frame.payload_len = 1;	
-	send_frame.mask1 = 'c';
-	send_frame.mask2 = 0;
-	send_frame.mask3 = 0;
-	send_frame.mask4 = 0;
-	send_frame.head = 'c';
-	send_frame.tail = 0;
 
-	while(1)
+	if(receive_frame->opcode == 8)
 	{
-		read_state = read(connect_fd, recv_packet_temp, 999);
-		if(read_state == 0)
+		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
+		if(receive_frame->payload_len > 2)
 		{
-			perror("connect interrupt\n");
-			return 0;
+
+			printf("\n");
+
+			char temp = decode_string[0];
+			decode_string[0] = decode_string[1];
+			decode_string[1] = temp;
+			//decimal_to_binary(*((int *)(decode_string)), 31, 0);
+			printf("%hd ", *((short int *)(decode_string)));
+			printf("%s\n", decode_string + 2);
 		}
 
+		send_frame.opcode = 8;
+		send_frame.payload_len = 0;
+		send_trans_ending(2 , &send_frame, send_buffer);
+		send(connect_fd, send_buffer, 2, 0);
 
-		recv_packet_temp[read_state] = '\0';
-		receive_trans_ending(read_state, recv_packet_temp, local_ending);
-		websocket_frame * receive_frame = (websocket_frame *)local_ending;
-
-		frame_mask[0] = receive_frame->mask1;
-		frame_mask[1] = receive_frame->mask2;
-		frame_mask[2] = receive_frame->mask3;
-		frame_mask[3] = receive_frame->mask4;
-
-
-
-
-		print_frame_binary(read_state, local_ending);
-		printf("\n");
-		printf("\n%d %d %d %d %d %d %d %d %d %d %d", 
-				receive_frame->fin,
-				receive_frame->rsv1,
-				receive_frame->rsv2,
-				receive_frame->rsv3,
-				receive_frame->opcode,
-				receive_frame->mask,
-				receive_frame->payload_len,
-				receive_frame->mask1,
-				receive_frame->mask2,
-				receive_frame->mask3,
-				receive_frame->mask4
-				);
-		printf("\n\n");
-
-
-		if(receive_frame->opcode == 8)
+		
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, connect_fd, NULL) == -1)
 		{
-			payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
-			if(receive_frame->payload_len > 2)
-			{
-
-				printf("\n");
-
-				char temp = decode_string[0];
-				decode_string[0] = decode_string[1];
-				decode_string[1] = temp;
-				//decimal_to_binary(*((int *)(decode_string)), 31, 0);
-				printf("%hd ", *((short int *)(decode_string)));
-				printf("%s\n", decode_string + 2);
-			}
-
-			send_frame.opcode = 8;
-			send_frame.payload_len = 0;
-			send_trans_ending(2 , &send_frame, send_buffer);
-			send(connect_fd, send_buffer, 2, 0);
-			close(connect_fd);
-			return 0;
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
 		}
+		close(connect_fd);
+	}
+	else
+	{
 
 		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
 		printf("\n");
@@ -292,6 +334,6 @@ int websocket_handle(int connect_fd)
 		send_trans_ending(2 + send_len, &send_frame, send_buffer);
 		send(connect_fd, send_buffer, 2 + send_len, 0);
 	}
-	//close(connect_fd);
+	
 	return 0;
 }

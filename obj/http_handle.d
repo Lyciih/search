@@ -104,4 +104,6 @@ obj/http_handle.o: src/http_handle.c /usr/include/stdc-predef.h \
  /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
  /usr/include/openssl/asn1err.h /usr/include/openssl/bn.h \
  /usr/include/openssl/bnerr.h /usr/include/openssl/objectserr.h \
- /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h
+ /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h \
+ /usr/include/aarch64-linux-gnu/sys/epoll.h \
+ /usr/include/aarch64-linux-gnu/bits/epoll.h
