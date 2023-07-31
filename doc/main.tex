@@ -1,0 +1,37 @@
+% !TeX program = xelatex
+\documentclass[]{report}
+
+%設定中文排版及字體
+\usepackage{xeCJK}
+\setCJKmainfont{Noto Sans TC}
+
+%設定目錄標題顯示
+\renewcommand{\contentsname}{目錄}
+
+%設定邊界
+\usepackage{geometry}
+\geometry{
+	a4paper,
+	left=3cm,
+	right=2.5cm,
+	top=2.5cm,
+	bottom=2.5cm,
+}
+
+%設定行距
+\usepackage{setspace}
+\onehalfspacing
+
+
+
+
+\begin{document}
+
+%產生目錄
+\tableofcontents
+
+
+\chapter{底層網路架構}
+\section{概述}
+在我們建立的系統中
+\end{document}

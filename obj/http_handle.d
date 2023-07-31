@@ -106,4 +106,6 @@ obj/http_handle.o: src/http_handle.c /usr/include/stdc-predef.h \
  /usr/include/openssl/bnerr.h /usr/include/openssl/objectserr.h \
  /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h \
  /usr/include/aarch64-linux-gnu/sys/epoll.h \
- /usr/include/aarch64-linux-gnu/bits/epoll.h
+ /usr/include/aarch64-linux-gnu/bits/epoll.h include/hiredis.h \
+ include/read.h /usr/include/aarch64-linux-gnu/sys/time.h include/sds.h \
+ include/alloc.h

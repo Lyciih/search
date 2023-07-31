@@ -2,6 +2,23 @@
 
 int main(int argc, char ** argv)
 {
+
+	redisContext * redis;
+	redisReply * reply;
+
+	redis = redisConnect("127.0.0.1", 6379);
+	if(redis == NULL)
+	{
+		perror("redis connect error\n");
+		redisFree(redis);
+		exit(1);
+	}
+		//freeReplyObject(reply);
+		redisFree(redis);
+
+
+
+
 	if(argc != 3)
 	{
 		printf("arg need ip and port\n");
@@ -116,7 +133,7 @@ int main(int argc, char ** argv)
 			perror("epoll_wait error\n");
 			exit(1);
 		}
-		printf("get %d event\n", get_event_count);
+		//printf("get %d event\n", get_event_count);
 
 		for(int i = 0; i < get_event_count; i++)
 		{
@@ -125,8 +142,6 @@ int main(int argc, char ** argv)
 
 			if(current_fd == listen_fd)
 			{
-				printf("%d\n", listen_fd);
-				printf("%d\n", current_fd);
 				connect_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &len);
 				if(connect_fd == -1)
 				{
@@ -159,8 +174,7 @@ int main(int argc, char ** argv)
 			}
 			else if(current_event & EPOLLIN)
 			{
-				printf("%d\n", get_events[i].data.fd);
-				websocket_handle(get_events[i].data.fd, epoll_fd);
+				websocket_handle(current_fd, epoll_fd);
 			}
 		}
 	}

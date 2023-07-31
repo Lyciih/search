@@ -19,6 +19,9 @@
 #include <sys/epoll.h>
 
 
+#include "hiredis.h"
+
+
 
 int http_handle(int connect_fd);
 int websocket_handshake(int connect_fd);
