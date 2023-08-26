@@ -131,6 +131,8 @@ int websocket_handshake(int connect_fd)
 	}
 	recv_packet_temp[read_state] = '\0';
 
+	printf("%s\n", recv_packet_temp);
+
 	//檢查請求是否合法------------------------------------------------------
 	if(analysis(1, "Upgrade: websocket", recv_packet_temp, regex_result, sizeof(regex_result)) != 0)
 	{
@@ -210,6 +212,90 @@ int websocket_handshake(int connect_fd)
 
 
 
+int websocket_handshake_ssl(int connect_fd, SSL * ssl)
+{
+	char 	send_buffer[2000];
+	char 	recv_packet_temp[1000];
+	int 	read_state;
+	//FILE	* target;
+	char	regex_result[100];
+	char	Sec_WebSocket_Accept_buffer[100];
+
+
+	//讀取收到的請求---------------------------------------------------------
+	read_state = SSL_read(ssl, recv_packet_temp, 999);
+	if(read_state == -1)
+	{
+		perror("connect interrupt\n");
+		return -1;
+	}
+	recv_packet_temp[read_state] = '\0';
+
+	printf("%s\n", recv_packet_temp);
+
+	//檢查請求是否合法------------------------------------------------------
+	if(analysis(1, "Upgrade: websocket", recv_packet_temp, regex_result, sizeof(regex_result)) != 0)
+	{
+		close(connect_fd);
+		return -2;
+	}
+
+	//用正則表達式取得用於 websocket 握手的key---------------------------------------------------------
+	if(analysis(1, "Sec-WebSocket-Key: (.{24})", recv_packet_temp, regex_result, sizeof(regex_result)) == 0)
+	{
+
+
+		//strcpy(regex_result, "dGhlIHNhbXBsZSBub25jZQ==");    //for test,and final answer is s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+		strcat(regex_result, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+		SHA_CTX sha1;
+		SHA1_Init(&sha1);
+		SHA1_Update(&sha1, regex_result, strlen(regex_result));
+		unsigned char hash[SHA_DIGEST_LENGTH];
+		SHA1_Final(hash, &sha1);
+
+
+		BIO * bmem = BIO_new(BIO_s_mem());
+		BIO * b64  = BIO_new(BIO_f_base64());
+		BIO * bio  = BIO_push(b64, bmem);
+
+		BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+
+		BIO_write(bio, hash, SHA_DIGEST_LENGTH);
+		BIO_flush(bio);
+
+		BUF_MEM * bptr;
+		BIO_get_mem_ptr(bio, &bptr);
+		strcpy(Sec_WebSocket_Accept_buffer, bptr->data);
+
+
+		BIO_free_all(bio);
+		
+		printf("%s\n", regex_result);
+		printf("%s\n", hash);
+		printf("%s\n", Sec_WebSocket_Accept_buffer);
+	}
+
+
+
+
+	printf("%s", recv_packet_temp);
+
+
+	//產生http回應-------------------------------------------------------------------------------------
+	sprintf(send_buffer,
+			"HTTP/1.1 101 Switching Protocols\r\n"
+			"Upgrade: websocket\r\n"
+			"Connection: Upgrade\r\n"
+			"Sec-WebSocket-Accept: %s\r\n"
+			"\r\n"
+			, Sec_WebSocket_Accept_buffer);
+	
+	//發送http回應-------------------------------------------------------------------------
+	SSL_write(ssl, send_buffer, strlen(send_buffer));
+
+
+	return 0;
+}
 
 
 
@@ -333,6 +419,154 @@ int websocket_handle(int connect_fd, int epoll_fd)
 		printf("\n----------------------------\n");
 		send_trans_ending(2 + send_len, &send_frame, send_buffer);
 		send(connect_fd, send_buffer, 2 + send_len, 0);
+	}
+	
+	return 0;
+}
+
+
+
+int websocket_handle_ssl(client * current_data, int epoll_fd, client * client_info, int client_begin, int max_client)
+{
+	char 	send_buffer[2000];
+	char 	recv_packet_temp[1000];
+	char 	local_ending[1000];
+	int 	read_state;
+	char	frame_mask[4];
+	char	decode_string[1000];
+	char	decode_string_head[1050];
+	websocket_frame send_frame;
+
+
+	read_state = SSL_read(current_data->ssl, recv_packet_temp, 999);
+	if(read_state == -1)
+	{
+		perror("read error\n");
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, current_data->fd, NULL) == -1)
+		{
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
+		}
+		SSL_shutdown(current_data->ssl);
+		SSL_free(current_data->ssl);
+		current_data->ssl = NULL;
+		close(current_data->fd);
+		current_data->fd = -1;
+		return -1;
+	}
+
+	if(read_state == 0)
+	{
+
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, current_data->fd, NULL) == -1)
+		{
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
+		}
+		SSL_shutdown(current_data->ssl);
+		SSL_free(current_data->ssl);
+		current_data->ssl = NULL;
+		close(current_data->fd);
+		current_data->fd = -1;
+		return 0;
+	}
+
+	recv_packet_temp[read_state] = '\0';
+	receive_trans_ending(read_state, recv_packet_temp, local_ending);
+	websocket_frame * receive_frame = (websocket_frame *)local_ending;
+
+	frame_mask[0] = receive_frame->mask1;
+	frame_mask[1] = receive_frame->mask2;
+	frame_mask[2] = receive_frame->mask3;
+	frame_mask[3] = receive_frame->mask4;
+
+
+
+
+	print_frame_binary(read_state, local_ending);
+	printf("\n");
+	printf("\n%d %d %d %d %d %d %d %d %d %d %d", 
+			receive_frame->fin,
+			receive_frame->rsv1,
+			receive_frame->rsv2,
+			receive_frame->rsv3,
+			receive_frame->opcode,
+			receive_frame->mask,
+			receive_frame->payload_len,
+			receive_frame->mask1,
+			receive_frame->mask2,
+			receive_frame->mask3,
+			receive_frame->mask4
+			);
+	printf("\n\n");
+
+	send_frame.fin = 1;
+	send_frame.rsv1 = 0;
+	send_frame.rsv2 = 0;
+	send_frame.rsv3 = 0;
+	send_frame.opcode = 1;
+	send_frame.mask = 0;
+
+	if(receive_frame->opcode == 8)
+	{
+		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
+		if(receive_frame->payload_len > 2)
+		{
+
+			printf("\n");
+
+			char temp = decode_string[0];
+			decode_string[0] = decode_string[1];
+			decode_string[1] = temp;
+			//decimal_to_binary(*((int *)(decode_string)), 31, 0);
+			printf("%hd ", *((short int *)(decode_string)));
+			printf("訪客(%d) %s\n",current_data->fd-4, decode_string + 2);
+		}
+
+		send_frame.opcode = 8;
+		send_frame.payload_len = 0;
+		send_trans_ending(2 , &send_frame, send_buffer);
+		SSL_write(current_data->ssl, send_buffer, 2);
+
+		
+		if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, current_data->fd, NULL) == -1)
+		{
+			perror("epoll_ctl remove socket fails\n");
+			exit(1);
+		}
+		SSL_shutdown(current_data->ssl);
+		SSL_free(current_data->ssl);
+		current_data->ssl = NULL;
+		close(current_data->fd);
+		current_data->fd = -1;
+	}
+	else
+	{
+
+		payload_decode(&(receive_frame->head), receive_frame->payload_len, frame_mask, decode_string);
+		printf("\n");
+		printf("%s\n", decode_string);
+
+		if(decode_string[0] == 'c')
+		{
+		
+			sprintf(decode_string_head, "c訪客(%d): %s", current_data->fd - 4, decode_string + 1);
+
+			int send_len =  strlen(decode_string_head);
+			payload_send_sort(&send_frame.head - 4, decode_string_head, send_len);
+			send_frame.payload_len = send_len;
+			print_frame_binary(2 + send_len, (char *)(&send_frame));
+			printf("\n----------------------------\n");
+			send_trans_ending(2 + send_len, &send_frame, send_buffer);
+			//SSL_write(current_data->ssl, send_buffer, 2 + send_len);
+			for(int i = client_begin; i < max_client; i++)
+			{
+				if(client_info[i].fd != -1 && client_info[i].ssl != NULL)
+				{
+					SSL_write(client_info[i].ssl, send_buffer, 2 + send_len);
+				}
+			}
+		}
 	}
 	
 	return 0;

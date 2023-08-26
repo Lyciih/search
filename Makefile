@@ -9,7 +9,7 @@ all:flow
 -include $(DEPS) #這行如果放在 all 之前，修改 .h 檔後，不會偵測到改變
 
 flow: $(OBJS)
-	gcc $(CFLAG) -o $@ $^ -lcrypto lib/libhiredis.a
+	gcc $(CFLAG) -o $@ $^ -lcrypto -lssl lib/libhiredis.a
 
 obj/%.o: src/%.c
 	gcc $(CFLAG) -c $< -o $@
@@ -21,4 +21,4 @@ clean:
 	rm -f flow obj/*.o obj/*.d
 
 run:
-	./flow 0.0.0.0 1223
+	sudo ./flow 0.0.0.0 1223

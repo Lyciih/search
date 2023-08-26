@@ -14,13 +14,15 @@ window.onload = function()
 
 	websocket_input = document.getElementById("websocket_input");
 	websocket_output = document.getElementById("websocket_output");
+
+	webgpu_init();
 }
 
 
 
 function websocket_connect_function()
 {
-	socket = new WebSocket("ws://59.127.115.95:1223/");
+	socket = new WebSocket("wss://lyciih.idv.tw:1223/");
 	socket.onopen = function()
 	{
 		console.log("connect");
@@ -32,8 +34,11 @@ function websocket_connect_function()
 	socket.onmessage = function(event)
 	{
 		console.log(event.data);
-		websocket_output.value = websocket_output.value + '\n' + event.data;
-		websocket_output.scrollTop = websocket_output.scrollHeight;
+		if(event.data.charAt(0) == "c")
+		{
+			websocket_output.value = websocket_output.value + '\n' + event.data.substring(1);
+			websocket_output.scrollTop = websocket_output.scrollHeight;
+		}
 	};
 
 
@@ -56,7 +61,27 @@ function websocket_close_function()
 
 function websocket_send_function()
 {
-	var message = websocket_input.value;
+	var message = "c" + websocket_input.value;
 	socket.send(message);
 	websocket_input.value = "";
+}
+
+
+async function webgpu_init()
+{
+	if (!navigator.gpu)
+	{
+		console.log("webGPU is not supported");
+	}
+	else
+	{
+		console.log("webGPU is supported");
+	}
+
+
+	const adapter = await navigator.gpu.requestAdapter();
+	if(!adapter)
+	{
+		throw Error("Couldn't request webgpu adapter.");
+	}
 }

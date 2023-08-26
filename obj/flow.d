@@ -105,7 +105,22 @@ obj/flow.o: src/flow.c /usr/include/stdc-predef.h include/flow.h \
  /usr/include/openssl/asn1err.h /usr/include/openssl/bn.h \
  /usr/include/openssl/bnerr.h /usr/include/openssl/objectserr.h \
  /usr/include/openssl/buffer.h /usr/include/openssl/buffererr.h \
- /usr/include/aarch64-linux-gnu/sys/epoll.h \
+ /usr/include/openssl/ssl.h /usr/include/openssl/comp.h \
+ /usr/include/openssl/comperr.h /usr/include/openssl/x509.h \
+ /usr/include/openssl/ec.h /usr/include/openssl/ecerr.h \
+ /usr/include/openssl/rsa.h /usr/include/openssl/rsaerr.h \
+ /usr/include/openssl/dsa.h /usr/include/openssl/dh.h \
+ /usr/include/openssl/dherr.h /usr/include/openssl/dsaerr.h \
+ /usr/include/openssl/x509err.h /usr/include/openssl/x509_vfy.h \
+ /usr/include/openssl/lhash.h /usr/include/openssl/pkcs7.h \
+ /usr/include/openssl/pkcs7err.h /usr/include/openssl/pem.h \
+ /usr/include/openssl/pemerr.h /usr/include/openssl/hmac.h \
+ /usr/include/openssl/async.h /usr/include/openssl/asyncerr.h \
+ /usr/include/openssl/ct.h /usr/include/openssl/cterr.h \
+ /usr/include/openssl/sslerr.h /usr/include/openssl/ssl2.h \
+ /usr/include/openssl/ssl3.h /usr/include/openssl/tls1.h \
+ /usr/include/openssl/dtls1.h /usr/include/openssl/srtp.h \
+ /usr/include/openssl/err.h /usr/include/aarch64-linux-gnu/sys/epoll.h \
  /usr/include/aarch64-linux-gnu/bits/epoll.h include/hiredis.h \
  include/read.h /usr/include/aarch64-linux-gnu/sys/time.h include/sds.h \
  include/alloc.h
