@@ -1,12 +1,68 @@
-#websocket_output{
-width: 210px;
-height: 200px;
-resize: none;
+
+@media screen and (max-device-width: 3000px){
+	#websocket_output_html{
+	width: 10vw;
+	height: 200px;
+	resize: none;
+	margin-right: 0px;
+	}
+
+
+	#websocket_input_html{
+	width: 10vw;
+	height: 30px;
+	resize: none;
+	margin-right: 0px;
+	}
+	
+	#main_canvas_html{
+	width: calc(87vw - 4px);
+	height: 95vh;
+	resize: none;
+	margin: 10px;
+	float: left;
+	}
 }
 
 
-#websocket_input{
-width: 210px;
-height: 30px;
-resize: none;
+
+@media screen and (max-device-width: 1000px){
+	#websocket_html{
+	width: 20vw;
+	height: 6vw;
+	resize: none;
+	font-size: 4vw;
+	}
+	
+	#websocket_output_html{
+	width: 85vw;
+	height: 100vw;
+	resize: none;
+	font-size: 5vw;
+	margin: 10px;
+	}
+
+
+	#websocket_input_html{
+	width: 85vw;
+	height: 10vw;
+	resize: none;
+	font-size: 5vw;
+	margin: 10px;
+	}
+	
+	#websocket_send_html{
+	width: 20vw;
+	height: 6vw;
+	resize: none;
+	font-size: 4vw;
+	}
+	
+	#main_canvas_html{
+	width: 90vw;
+	height: 80vh;
+	resize: none;
+	margin: 10px;
+	}
+
 }

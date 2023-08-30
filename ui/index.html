@@ -7,20 +7,27 @@
 	<link rel="stylesheet" href="css/index.css">
 </head>
 <body>
-	<hi>hello world</hi>
-	<p> this is a sample</p>
 	<div>
-		<button id="websocket">連線</button>
-	</div>
-	<div>
-		<textarea readonly id="websocket_output"></textarea>
-	</div>
-	<div>
-		<textarea id="websocket_input"></textarea>
-	</div>
-
-	<div>
-		<button id="websocket_send">發送</button>
+		<div style="float: left">
+			<div>
+				<p id="screen_width_html">寬度:</p>
+			</div>
+			<div>
+				<button id="websocket_html">連線</button>
+			</div>
+			<div>
+				<textarea readonly id="websocket_output_html"></textarea>
+			</div>
+			<div>
+				<textarea id="websocket_input_html"></textarea>
+			</div>
+			<div>
+				<button id="websocket_send_html">發送</button>
+			</div>
+		</div>
+		<div>
+			<canvas id="main_canvas_html" style="border:1px black solid;"></canvas>
+		</div>
 	</div>
 </body>
 </html>
