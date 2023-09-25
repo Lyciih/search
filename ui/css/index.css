@@ -1,6 +1,6 @@
 
 @media screen and (max-device-width: 3000px){
-	#websocket_output_html{
+	#chat_output_html{
 	width: 10vw;
 	height: 200px;
 	resize: none;
@@ -8,7 +8,7 @@
 	}
 
 
-	#websocket_input_html{
+	#chat_input_html{
 	width: 10vw;
 	height: 30px;
 	resize: none;
@@ -22,28 +22,43 @@
 	margin: 10px;
 	float: left;
 	}
+	
+	#command_output_html{
+	width: 10vw;
+	height: 200px;
+	resize: none;
+	margin-right: 0px;
+	}
+
+
+	#command_input_html{
+	width: 10vw;
+	height: 30px;
+	resize: none;
+	margin-right: 0px;
+	}
 }
 
 
 
-@media screen and (max-device-width: 1000px){
-	#websocket_html{
+@media screen and (max-device-width: 900px){
+	#websocket_connection_html{
 	width: 20vw;
 	height: 6vw;
 	resize: none;
 	font-size: 4vw;
 	}
 	
-	#websocket_output_html{
+	#chat_output_html{
 	width: 85vw;
-	height: 100vw;
+	height: 40vw;
 	resize: none;
 	font-size: 5vw;
 	margin: 10px;
 	}
 
 
-	#websocket_input_html{
+	#chat_input_html{
 	width: 85vw;
 	height: 10vw;
 	resize: none;
@@ -51,8 +66,32 @@
 	margin: 10px;
 	}
 	
-	#websocket_send_html{
-	width: 20vw;
+	#chat_send_html{
+	width: 30vw;
+	height: 6vw;
+	resize: none;
+	font-size: 4vw;
+	}
+	
+	#command_output_html{
+	width: 85vw;
+	height: 40vw;
+	resize: none;
+	font-size: 5vw;
+	margin: 10px;
+	}
+
+
+	#command_input_html{
+	width: 85vw;
+	height: 10vw;
+	resize: none;
+	font-size: 5vw;
+	margin: 10px;
+	}
+	
+	#command_send_html{
+	width: 30vw;
 	height: 6vw;
 	resize: none;
 	font-size: 4vw;
@@ -66,3 +105,4 @@
 	}
 
 }
+

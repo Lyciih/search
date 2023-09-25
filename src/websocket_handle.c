@@ -520,7 +520,7 @@ int websocket_handle_ssl(client * current_data, int epoll_fd, client * client_in
 			decode_string[1] = temp;
 			//decimal_to_binary(*((int *)(decode_string)), 31, 0);
 			printf("%hd ", *((short int *)(decode_string)));
-			printf("訪客(%d) %s\n",current_data->fd-4, decode_string + 2);
+			printf("訪客(%d) %s\n",current_data->fd, decode_string + 2);
 		}
 
 		send_frame.opcode = 8;
@@ -550,13 +550,33 @@ int websocket_handle_ssl(client * current_data, int epoll_fd, client * client_in
 		if(decode_string[0] == 'c')
 		{
 		
-			sprintf(decode_string_head, "c訪客(%d): %s", current_data->fd - 4, decode_string + 1);
+			sprintf(decode_string_head, "c訪客(%d): %s", current_data->fd, decode_string + 1);
 
 			int send_len =  strlen(decode_string_head);
 			payload_send_sort(&send_frame.head - 4, decode_string_head, send_len);
 			send_frame.payload_len = send_len;
 			print_frame_binary(2 + send_len, (char *)(&send_frame));
-			printf("\n----------------------------\n");
+			printf("\n-----------------------------------\n");
+			send_trans_ending(2 + send_len, &send_frame, send_buffer);
+			//SSL_write(current_data->ssl, send_buffer, 2 + send_len);
+			for(int i = client_begin; i < max_client; i++)
+			{
+				if(client_info[i].fd != -1 && client_info[i].ssl != NULL)
+				{
+					SSL_write(client_info[i].ssl, send_buffer, 2 + send_len);
+				}
+			}
+		}
+		else if(decode_string[0] == 'i')
+		{
+		
+			sprintf(decode_string_head, "i%d", current_data->fd);
+
+			int send_len =  strlen(decode_string_head);
+			payload_send_sort(&send_frame.head - 4, decode_string_head, send_len);
+			send_frame.payload_len = send_len;
+			print_frame_binary(2 + send_len, (char *)(&send_frame));
+			printf("\n-----------------------------------\n");
 			send_trans_ending(2 + send_len, &send_frame, send_buffer);
 			//SSL_write(current_data->ssl, send_buffer, 2 + send_len);
 			for(int i = client_begin; i < max_client; i++)
