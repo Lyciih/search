@@ -36,9 +36,6 @@ for(let i = 0; i < max_client; i++)
 }
 
 var temp = [];
-var tempValues;
-var device;
-var temp_storageBuffer;
 //元素接口
 var screen_width;
 
@@ -135,10 +132,6 @@ document.onclick = function(event) {
 		temp.forEach(
 			(element) => console.log(element)
 		);
-		
-		tempValues.set(temp);
-		device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
-		render();
 	}
 }
 
@@ -171,10 +164,6 @@ window.onload = function()
 	
 	//webgpu -----------------------------------------------------------------------------------
 	main_canvas = document.getElementById("main_canvas_html");
-	//canvas 的真實範圍(可接收點擊事件)要拉成跟外框一樣大
-	main_canvas.width = main_canvas.offsetWidth - 2;
-	main_canvas.height = main_canvas.offsetHeight - 2;
-	
 	main_canvas_rect = main_canvas.getBoundingClientRect();
 	main_canvas_mouse_location = document.getElementById("main_canvas_mouse_location_html");
 	main_canvas.addEventListener("mousemove", function(event) {
@@ -298,7 +287,7 @@ async function webgpu_init()
 		throw Error("Couldn't request webgpu adapter.");
 	}
 
-	device = await adapter.requestDevice();
+	const device = await adapter.requestDevice();
 	if(!device)
 	{
 		throw Error("Couldn't request webgpu device.");
@@ -316,36 +305,46 @@ async function webgpu_init()
 	});
 
 	const main_module = device.createShaderModule({
-		label: 'temp',
+		label: 'red triangle',
 		code:`
-
-		struct size {
-			width: i32,
-			height: i32,
+		struct OurStruct {
+			color: vec4f,
+			offset: vec2f,
 		}
-		
+
+		struct OtherStruct {
+			scale: vec2f,
+		}
+
 		struct Vertex {
-			x: i32,
-			y: i32,
+			position: vec2f,
 		}
 		
+		struct VSOutput {
+			@builtin(position) position: vec4f,
+			@location(0) color: vec4f,
+		}
 
-		@group(0) @binding(0) var<uniform> canvas_size: size;
-		@group(0) @binding(1) var<storage, read> pos: array<Vertex>;
+		@group(0) @binding(0) var<storage, read> ourStructs: array<OurStruct>;
+		@group(0) @binding(1) var<storage, read> otherStructs: array<OtherStruct>;
+		@group(0) @binding(2) var<storage, read> pos: array<Vertex>;
 
 		@vertex fn vs(
 			@builtin(vertex_index) vertexIndex : u32,
-			) -> @builtin(position) vec4f {
+			@builtin(instance_index) instanceIndex : u32,
+			) -> VSOutput {
 
+			let otherStruct = otherStructs[instanceIndex];
+			let ourStruct = ourStructs[instanceIndex];
 
-			var transform_x:f32 = ((f32(pos[vertexIndex].x * 2)) / f32(canvas_size.width)) - 1;
-			var transform_y:f32 = 1 - ((f32(pos[vertexIndex].y * 2)) / f32(canvas_size.height));
-			
-			return vec4f(transform_x, transform_y, 0.0, 1.0);
+			var vsOut:VSOutput;
+			vsOut.position = vec4f(pos[vertexIndex].position * otherStruct.scale + ourStruct.offset, 0.0, 1.0);
+			vsOut.color = ourStruct.color;
+			return vsOut;
 		}
 
-		@fragment fn fs() -> @location(0) vec4f {
-			return vec4f(1.0, 0.0, 0.0, 0.0);
+		@fragment fn fs(vsOut: VSOutput) -> @location(0) vec4f {
+			return vsOut.color;
 		}
 		`,
 	});
@@ -353,7 +352,7 @@ async function webgpu_init()
 
 
 	const pipeline = device.createRenderPipeline({
-		label: 'temp pipeline',
+		label: 'red triangle pipeline',
 		layout: 'auto',
 		vertex: {
 			module: main_module,
@@ -370,34 +369,66 @@ async function webgpu_init()
 	});
 
 
-	const canvas_size_unitformBuffer = device.createBuffer({
-		label: `canvas size uniform`,
-		size: 8,
-		usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-	});
-	const canvas_size_uniformValues = new Int32Array(2);
-	canvas_size_uniformValues[0] = main_canvas.width;
-	canvas_size_uniformValues[1] = main_canvas.height;
-	device.queue.writeBuffer(canvas_size_unitformBuffer, 0, canvas_size_uniformValues);
+	const kNumObjects = 100;
+	const objectInfos = [];
+
+	const staticUnitSize = 4*4 + 2*4 + 2*4;
+	const changingUnitSize = 2*4;
+	
+	const staticStorageBufferSize = staticUnitSize * kNumObjects;
+	const changingStorageBufferSize = changingUnitSize * kNumObjects;
 
 
-
-	temp_StorageBuffer = device.createBuffer({
-		label: `storage for temp`,
-		size: 1024,
+	const staticStorageBuffer = device.createBuffer({
+		label: `static storage for objects`,
+		size: staticStorageBufferSize,
 		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 	});
-	tempValues = new Int32Array(1024 / 4);
-	tempValues.set(temp);
-	device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
 
 
+	const changingStorageBuffer = device.createBuffer({
+		label: `changing storage for objects`,
+		size: changingStorageBufferSize,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+	});
+
+	const vertexStorageBuffer = device.createBuffer({
+		label: `vertex storage for objects`,
+		size: all_client_data[0].polyline.byteLength,
+		usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+	});
+	
+	device.queue.writeBuffer(vertexStorageBuffer, 0, all_client_data[0].polyline);
+	
+	const kColorOffset = 0;
+	const kScaleOffset = 0;
+	const kOffsetOffset = 4;
+
+	{
+		const staticStorageValues = new Float32Array(staticStorageBufferSize / 4);
+		for(let i = 0; i < kNumObjects; i++){
+			const staticOffset = i * (staticUnitSize / 4);
+
+			staticStorageValues.set([rand(), rand(), rand(), 1], staticOffset + kColorOffset);
+			staticStorageValues.set([rand(-0.9, 0.9), rand(-0.9, 0.9)], staticOffset + kOffsetOffset);
+
+			
+			objectInfos.push({
+				scale: rand(0.2, 0.5),
+			});
+		}
+		device.queue.writeBuffer(staticStorageBuffer, 0, staticStorageValues);
+	}
+
+	const StorageValues = new Float32Array(changingStorageBufferSize / 4);
+	
 	const bindGroup = device.createBindGroup({
 		label: `bind group for objects`,
 		layout: pipeline.getBindGroupLayout(0),
 		entries: [
-			{ binding: 0, resource: { buffer: canvas_size_unitformBuffer }},
-			{ binding: 1, resource: { buffer: temp_StorageBuffer }},
+			{ binding: 0, resource: { buffer: staticStorageBuffer }},
+			{ binding: 1, resource: { buffer: changingStorageBuffer }},
+			{ binding: 2, resource: { buffer: vertexStorageBuffer }},
 		],
 	});
 
@@ -419,12 +450,27 @@ async function webgpu_init()
 		//為了在每次canvas改變大小時能重新取得繪製尺寸，在這裡才取得尺寸，而不是在 renderPassDescriptor 中先定義
 		renderPassDescriptor.colorAttachments[0].view = main_context.getCurrentTexture().createView();
 		
+		const aspect = main_canvas.width / main_canvas.height;
+
+
 
 		const encoder = device.createCommandEncoder({label: 'encoder'});
 		const pass = encoder.beginRenderPass(renderPassDescriptor);
 		pass.setPipeline(pipeline);
+
+
+
+		objectInfos.forEach(({scale}, ndx) => {
+			const offset = ndx * (changingUnitSize / 4);
+			StorageValues.set([scale / aspect, scale], offset + kScaleOffset);
+		});
+		
+		device.queue.writeBuffer(changingStorageBuffer, 0, StorageValues);
+		device.queue.writeBuffer(vertexStorageBuffer, 0, all_client_data[5].polyline);
+		
 		pass.setBindGroup(0, bindGroup);
-		pass.draw((temp.length)/2);
+		pass.draw(3, kNumObjects);
+		
 		pass.end();
 
 		const commandBuffer = encoder.finish();
@@ -441,13 +487,6 @@ async function webgpu_init()
 
 		main_canvas_rect = main_canvas.getBoundingClientRect();
 
-
-		canvas_size_uniformValues[0] = main_canvas.width;
-		canvas_size_uniformValues[1] = main_canvas.height;
-		device.queue.writeBuffer(canvas_size_unitformBuffer, 0, canvas_size_uniformValues);
-
-		tempValues.set(temp);
-		device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
 		render();
 	}
 	
