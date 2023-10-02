@@ -1,4 +1,4 @@
-var page_size = 4096;
+var page_size = 64;
 
 
 class client_data {
@@ -18,7 +18,6 @@ class client_data {
 
 
 class storage_copy_buffer_value_pair{
-	buffer;
 	constructor(my_size){
 		this.buffer = device.createBuffer({
 			label: 'storage copy',
@@ -251,9 +250,9 @@ document.onclick = function(event) {
 
 function line_insert(temp){
 	for(let i = 0; i < all_geometry_data.line.length; i++){
-		console.log(all_geometry_data.line[i].manage.value);
+
 		if(all_geometry_data.line[i].space > 0){
-			for(let j = 0; i < page_size / 8; j++){
+			for(let j = 0; j < page_size / 8; j++){
 				if((all_geometry_data.line[i].manage.value[j] & 1) == 0){
 					all_geometry_data.line[i].manage.value[j] |= 1;
 					
@@ -265,8 +264,7 @@ function line_insert(temp){
 					all_geometry_data.line[i].end.value[j*2 + 1] = temp[3];
 					all_geometry_data.line[i].end.submit();
 
-
-					insert_success = 1;
+					console.log(all_geometry_data.line[i].manage.value);
 					return;
 				}
 
@@ -277,14 +275,15 @@ function line_insert(temp){
 	var new_space = new line_tensor();
 	new_space.manage.value[0] |= 1;
 
-	new_space.begin.value[j*2] = temp[0];
-	new_space.begin.value[j*2 + 1] = temp[1];
+	new_space.begin.value[0] = temp[0];
+	new_space.begin.value[1] = temp[1];
 	new_space.begin.submit();
 	
-	new_space.end.value[j*2] = temp[2];
-	new_space.end.value[j*2 + 1] = temp[3];
+	new_space.end.value[0] = temp[2];
+	new_space.end.value[1] = temp[3];
 	new_space.end.submit();
 
+	console.log(new_space.manage.value);
 	all_geometry_data.line.push(new_space);
 }
 
@@ -556,8 +555,10 @@ async function webgpu_init()
 		const encoder = device.createCommandEncoder({label: 'encoder'});
 		const pass = encoder.beginRenderPass(renderPassDescriptor);
 		pass.setPipeline(pipeline);
-		pass.setBindGroup(0, all_geometry_data.line[0].bindGroup);
-		pass.draw(page_size / 8 * 2);
+		for(let i = 0; i < all_geometry_data.line.length; i++){
+			pass.setBindGroup(0, all_geometry_data.line[i].bindGroup);
+			pass.draw(page_size / 8 * 2);
+		}
 		pass.end();
 
 		const commandBuffer = encoder.finish();
