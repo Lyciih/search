@@ -1,3 +1,5 @@
+var page_size = 4096;
+
 
 class client_data {
 	constructor(name = "null", ID = -1) {
@@ -15,30 +17,81 @@ class client_data {
 }
 
 
+class storage_copy_buffer_value_pair{
+	buffer;
+	constructor(my_size){
+		this.buffer = device.createBuffer({
+			label: 'storage copy',
+			size: my_size,
+			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+		});
+		this.value = new Int32Array(my_size/4); 
+	}
+
+	submit(offset = 0){
+		device.queue.writeBuffer(this.buffer, offset, this.value);
+	}
+}
+
+class line_tensor{
+	constructor(){
+		this.space = page_size / 8;
+		this.manage = new storage_copy_buffer_value_pair(page_size / 2);
+		this.begin = new storage_copy_buffer_value_pair(page_size);
+		this.end = new storage_copy_buffer_value_pair(page_size);
+		this.bindGroup = device.createBindGroup({
+			label: `line tensor bindGroup`,
+			layout: pipeline.getBindGroupLayout(0),
+			entries: [
+				{ binding: 0, resource: { buffer: canvas_size_unitformBuffer }},
+				{ binding: 1, resource: { buffer: this.begin.buffer }},
+				{ binding: 2, resource: { buffer: this.end.buffer }},
+			],
+		});
+	}
+}
+
+
+
+class geometry_data{
+	constructor(){
+		this.line = [];
+		this.line.push(new line_tensor);
+	}
+}
+
 
 //變數宣告
 var ID_table;
 var ID;
-var chat = [];
-var chat_count = 0;
 
-var command_history = [];
-var command_count = 0;
+var chat_history = {
+	value: [],
+	count: 0,
+};
 
+var command_history = {
+	value: [],
+	count: 0,
+};
 
 var max_client = 1024;
 var all_client_data = new Array(max_client);
+var all_geometry_data;
 
 for(let i = 0; i < max_client; i++)
 {
 	all_client_data[i] = new client_data('null', i);
-	console.log(all_client_data[i].ID);
+	//console.log(all_client_data[i].ID);
 }
 
 var temp = [];
 var tempValues;
 var device;
+var adapter;
 var temp_storageBuffer;
+var pipeline;
+var canvas_size_unitformBuffer;
 //元素接口
 var screen_width;
 
@@ -60,6 +113,10 @@ var main_canvas_mouse_location;
 
 //函數接口
 var render;
+
+
+//命令狀態機
+var line_state = 0;
 
 const rand = (min, max) => {
 	if(min === undefined)
@@ -86,11 +143,6 @@ document.onkeydown = function(event) {
 		input_mode = 'normal';
 		mode_display.innerText = "模式: normal";
 	}
-	else if(event.code == 'KeyD'){
-		console.log('draw mode');
-		input_mode = 'draw';
-		mode_display.innerText = "模式: draw";
-	}
 	else if(input_mode == 'normal'){
 		//s鍵
 		if(event.code == "KeyS"){
@@ -99,6 +151,15 @@ document.onkeydown = function(event) {
 			input_mode = 'chat'
 			mode_display.innerText = "模式: chat";
 			chat_input.focus();
+		}
+		//l鍵
+		else if(event.code == "KeyL"){
+			console.log('line mode');
+			input_mode = 'line'
+			mode_display.innerText = "模式: line";
+			
+			message_output_update(command_output, command_history, 'line');
+			message_output_update(command_output, command_history, '請輸入第一個點:');
 		}
 	}
 	else if(input_mode == 'chat'){
@@ -109,6 +170,29 @@ document.onkeydown = function(event) {
 		}
 	}
 }
+
+function message_output_update(target_interface, target, string)
+{
+	target_interface.scrollTop = target_interface.scrollHeight;
+	if(target.count < 500)
+	{
+		target.value.push(string);
+		target.count++;
+	}
+	else
+	{
+		target.value.shift();
+		target.value.push(string);
+	}
+	target_interface.value = '';
+	for(let i = 0; i < target.count; i++)
+	{
+		console.log(target.count);
+		target_interface.value = target_interface.value + target.value[i] + '\n';
+	}
+}
+
+
 
 //滑鼠
 //萬一在輸入模式中用滑鼠按了其他地方，模式也要跟著變
@@ -127,21 +211,82 @@ document.onclick = function(event) {
 	}
 	
 	if(event.target.id == 'main_canvas_html'){
-		input_mode = 'draw';
-		mode_display.innerText = "模式: draw";
-		console.log('draw mode');
-		temp.push(event.pageX - main_canvas_rect.left);
-		temp.push(event.pageY - main_canvas_rect.top);
-		temp.forEach(
-			(element) => console.log(element)
-		);
-		
-		tempValues.set(temp);
-		device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
-		render();
+		if(input_mode == 'line'){
+			if(line_state == 0)
+			{
+				temp[0] = event.pageX - main_canvas_rect.left;
+				temp[1] = event.pageY - main_canvas_rect.top;
+				temp.forEach(
+					(element) => console.log(element)
+				);
+				
+				tempValues.set(temp);
+				device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
+				render();
+				message_output_update(command_output, command_history, '請輸入第二個點:');
+				line_state++;
+			}
+			else
+			{
+				temp[2] = event.pageX - main_canvas_rect.left;
+				temp[3] = event.pageY - main_canvas_rect.top;
+				temp.forEach(
+					(element) => console.log(element)
+				);
+				
+				line_insert(temp);
+				tempValues.set(temp);
+				device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
+				render();
+				message_output_update(command_output, command_history, '完成');
+				line_state = 0;
+				
+				input_mode = 'normal';
+				mode_display.innerText = "模式: normal";
+				console.log('normal mode');
+			}
+		}
 	}
 }
 
+function line_insert(temp){
+	for(let i = 0; i < all_geometry_data.line.length; i++){
+		console.log(all_geometry_data.line[i].manage.value);
+		if(all_geometry_data.line[i].space > 0){
+			for(let j = 0; i < page_size / 8; j++){
+				if((all_geometry_data.line[i].manage.value[j] & 1) == 0){
+					all_geometry_data.line[i].manage.value[j] |= 1;
+					
+					all_geometry_data.line[i].begin.value[j*2] = temp[0];
+					all_geometry_data.line[i].begin.value[j*2 + 1] = temp[1];
+					all_geometry_data.line[i].begin.submit();
+					
+					all_geometry_data.line[i].end.value[j*2] = temp[2];
+					all_geometry_data.line[i].end.value[j*2 + 1] = temp[3];
+					all_geometry_data.line[i].end.submit();
+
+
+					insert_success = 1;
+					return;
+				}
+
+			}
+		}
+	}
+
+	var new_space = new line_tensor();
+	new_space.manage.value[0] |= 1;
+
+	new_space.begin.value[j*2] = temp[0];
+	new_space.begin.value[j*2 + 1] = temp[1];
+	new_space.begin.submit();
+	
+	new_space.end.value[j*2] = temp[2];
+	new_space.end.value[j*2 + 1] = temp[3];
+	new_space.end.submit();
+
+	all_geometry_data.line.push(new_space);
+}
 
 window.onload = function()
 {
@@ -205,23 +350,7 @@ function websocket_connect_function()
 		console.log(event.data);
 		if(event.data.charAt(0) == "c")
 		{
-			//chat_output.value = chat_output.value + '\n' + event.data.substring(1);
-			chat_output.scrollTop = chat_output.scrollHeight;
-			if(chat_count < 500)
-			{
-				chat.push(event.data.substring(1));
-				chat_count++;
-			}
-			else
-			{
-				chat.shift();
-				chat.push(event.data.substring(1));
-			}
-			chat_output.value = '';
-			for(let i = 0; i < chat_count; i++)
-			{
-				chat_output.value = chat_output.value + chat[i] + '\n';
-			}
+			message_output_update(chat_output, chat_history, event.data.substring(1));
 		}
 		if(event.data.charAt(0) == "i")
 		{
@@ -292,7 +421,7 @@ async function webgpu_init()
 	}
 
 
-	const adapter = await navigator.gpu.requestAdapter();
+	adapter = await navigator.gpu.requestAdapter();
 	if(!adapter)
 	{
 		throw Error("Couldn't request webgpu adapter.");
@@ -315,6 +444,7 @@ async function webgpu_init()
 		format: main_format,
 	});
 
+
 	const main_module = device.createShaderModule({
 		label: 'temp',
 		code:`
@@ -331,17 +461,28 @@ async function webgpu_init()
 		
 
 		@group(0) @binding(0) var<uniform> canvas_size: size;
-		@group(0) @binding(1) var<storage, read> pos: array<Vertex>;
+		@group(0) @binding(1) var<storage, read> begin: array<Vertex>;
+		@group(0) @binding(2) var<storage, read> end: array<Vertex>;
 
 		@vertex fn vs(
 			@builtin(vertex_index) vertexIndex : u32,
 			) -> @builtin(position) vec4f {
 
+			var transform_x:f32;
+			var transform_y:f32;
 
-			var transform_x:f32 = ((f32(pos[vertexIndex].x * 2)) / f32(canvas_size.width)) - 1;
-			var transform_y:f32 = 1 - ((f32(pos[vertexIndex].y * 2)) / f32(canvas_size.height));
-			
-			return vec4f(transform_x, transform_y, 0.0, 1.0);
+			if((vertexIndex & 1) == 0){
+				transform_x = ((f32(begin[vertexIndex >> 1].x * 2)) / f32(canvas_size.width)) - 1;
+				transform_y = 1 - ((f32(begin[vertexIndex >> 1].y * 2)) / f32(canvas_size.height));
+				return vec4f(transform_x, transform_y, 0.0, 1.0);
+
+			}
+			else
+			{
+				transform_x = ((f32(end[vertexIndex >> 1].x * 2)) / f32(canvas_size.width)) - 1;
+				transform_y = 1 - ((f32(end[vertexIndex >> 1].y * 2)) / f32(canvas_size.height));
+				return vec4f(transform_x, transform_y, 0.0, 1.0);
+			}
 		}
 
 		@fragment fn fs() -> @location(0) vec4f {
@@ -350,9 +491,7 @@ async function webgpu_init()
 		`,
 	});
 
-
-
-	const pipeline = device.createRenderPipeline({
+	pipeline = device.createRenderPipeline({
 		label: 'temp pipeline',
 		layout: 'auto',
 		vertex: {
@@ -365,12 +504,13 @@ async function webgpu_init()
 			targets: [{ format: main_format }],
 		},
 		primitive: {
-			topology: 'line-strip',
+			//topology: 'line-strip',
+			topology: 'line-list',
 		},
 	});
 
 
-	const canvas_size_unitformBuffer = device.createBuffer({
+	canvas_size_unitformBuffer = device.createBuffer({
 		label: `canvas size uniform`,
 		size: 8,
 		usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -392,16 +532,6 @@ async function webgpu_init()
 	device.queue.writeBuffer(temp_StorageBuffer, 0, tempValues);
 
 
-	const bindGroup = device.createBindGroup({
-		label: `bind group for objects`,
-		layout: pipeline.getBindGroupLayout(0),
-		entries: [
-			{ binding: 0, resource: { buffer: canvas_size_unitformBuffer }},
-			{ binding: 1, resource: { buffer: temp_StorageBuffer }},
-		],
-	});
-
-
 	
 	const renderPassDescriptor = {
 		label: 'canvas renderPass',
@@ -415,6 +545,9 @@ async function webgpu_init()
 	};
 
 
+	all_geometry_data = new geometry_data();
+
+
 	render = function() {
 		//為了在每次canvas改變大小時能重新取得繪製尺寸，在這裡才取得尺寸，而不是在 renderPassDescriptor 中先定義
 		renderPassDescriptor.colorAttachments[0].view = main_context.getCurrentTexture().createView();
@@ -423,8 +556,8 @@ async function webgpu_init()
 		const encoder = device.createCommandEncoder({label: 'encoder'});
 		const pass = encoder.beginRenderPass(renderPassDescriptor);
 		pass.setPipeline(pipeline);
-		pass.setBindGroup(0, bindGroup);
-		pass.draw((temp.length)/2);
+		pass.setBindGroup(0, all_geometry_data.line[0].bindGroup);
+		pass.draw(page_size / 8 * 2);
 		pass.end();
 
 		const commandBuffer = encoder.finish();
